@@ -1,0 +1,38 @@
+{
+  "name": "r2-manager",
+  "scripts": {
+    "dev": "bun run monaco:assets && next dev",
+    "build": "bun run monaco:assets && next build",
+    "start": "next start",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "monaco:assets": "node scripts/prepare-monaco.mjs"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1166.0",
+    "@aws-sdk/s3-request-presigner": "^3.1166.0",
+    "@cloudflare/kumo": "^2.18.0",
+    "@monaco-editor/react": "^4.7.0",
+    "@phosphor-icons/react": "^2.1.10",
+    "@vercel/speed-insights": "^2.1.0",
+    "better-auth": "^1.7.20",
+    "echarts": "^6.1.0",
+    "monaco-editor": "^0.57.0",
+    "next": "16.4.6",
+    "pg": "^8.23.1",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "4.3.5",
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "tailwindcss": "4.3.5",
+    "typescript": "^5.9.3"
+  }
+}
