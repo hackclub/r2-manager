@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Tabs } from "@cloudflare/kumo/components/tabs";
 import { CopyValue } from "./copy-value";
 import { ThemeToggle } from "./theme-toggle";
+import { DatabaseIcon, ShieldCheckIcon } from "@phosphor-icons/react";
 
 function useRoute() {
   const path = usePathname();
@@ -83,5 +84,30 @@ export function RouteTabs() {
         />
       </nav>
     )
+  );
+}
+
+export function WorkspaceNavigation({ admin }: { admin: boolean }) {
+  const path = usePathname();
+  const inAdmin = path === "/admin" || path.startsWith("/admin/");
+  return (
+    <>
+      {[
+        { href: "/", label: "R2 Buckets", icon: DatabaseIcon, active: !inAdmin },
+        ...(admin
+          ? [{ href: "/admin", label: "Administration", icon: ShieldCheckIcon, active: inAdmin }]
+          : []),
+      ].map(({ href, label, icon: Icon, active }) => (
+        <Link
+          key={href}
+          href={href}
+          aria-current={active ? "page" : undefined}
+          className={`flex items-center gap-3 rounded-md px-3 py-2 ${active ? "bg-kumo-tint font-medium" : "hover:bg-kumo-tint"}`}
+        >
+          <Icon size={16} />
+          {label}
+        </Link>
+      ))}
+    </>
   );
 }

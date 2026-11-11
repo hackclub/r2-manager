@@ -50,19 +50,21 @@ export function PromoteButton({ subject, name }: { subject: string; name: string
 export function AccessForm({ subject, allowed }: { subject?: string; allowed?: boolean }) {
   const [message, action, pending] = useActionState(allowUser, null);
   return (
-    <form action={action} className="flex flex-wrap items-center gap-3">
+    <form action={action} className="flex min-w-0 flex-wrap items-center gap-2">
       {subject ? (
         <input type="hidden" name="subject" value={subject} />
       ) : (
         <Input
           name="subject"
+          maxLength={200}
+          className="w-full sm:w-72"
           aria-label="Hack Club Auth ID"
           placeholder="Hack Club Auth ID"
           required
         />
       )}
       <input type="hidden" name="allowed" value={allowed ? "false" : "true"} />
-      <Button type="submit" variant="secondary" loading={pending}>
+      <Button type="submit" variant={subject ? "secondary" : "primary"} loading={pending}>
         {allowed ? "Revoke access" : "Allow access"}
       </Button>
       {message && <output className="text-sm text-kumo-subtle">{message}</output>}
@@ -79,12 +81,12 @@ export function AssignmentForm({
   const [owner, setOwner] = useState<string | null>(null);
   const [message, action, pending] = useActionState(assignBucket, null);
   return (
-    <form action={action} className="flex flex-wrap items-center gap-3">
+    <form action={action} className="flex min-w-0 flex-wrap items-center gap-2">
       <input type="hidden" name="bucket" value={bucket} />
       <input type="hidden" name="owner" value={owner ?? ""} />
       <Select
         aria-label={`Owner for ${bucket}`}
-        placeholder="Choose an owner"
+        placeholder="Select a registered user"
         value={owner}
         onValueChange={setOwner}
         items={Object.fromEntries(users.map((u) => [u.id, `${u.name} (${u.email})`]))}

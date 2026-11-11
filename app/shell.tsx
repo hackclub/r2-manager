@@ -1,12 +1,15 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { CloudflareLogo } from "@cloudflare/kumo/components/cloudflare-logo";
-import { DatabaseIcon } from "@phosphor-icons/react/dist/ssr";
 import { listBuckets } from "@/lib/buckets";
 import { SidebarBuckets } from "./sidebar-buckets";
 import { getAccess } from "@/lib/access";
 import { AuthButton } from "./auth-button";
-import { RouteNavigation, RouteTabs } from "./route-navigation";
+import { RouteNavigation, RouteTabs, WorkspaceNavigation } from "./route-navigation";
+
+async function WorkspaceLinks() {
+  return <WorkspaceNavigation admin={Boolean((await getAccess())?.admin)} />;
+}
 
 async function UserBuckets() {
   const a = await getAccess();
@@ -22,7 +25,21 @@ async function ShellBody({ children }: { children: React.ReactNode }) {
   const a = await getAccess();
   return (
     <>
-      <RouteNavigation auth={<AuthButton signedIn={!!a} />} tabs={a && <RouteTabs />} />
+      <RouteNavigation
+        auth={
+          <>
+            <span className="md:hidden">
+              {a?.admin && (
+                <Link href="/admin" className="mr-2 text-sm hover:underline">
+                  Admin
+                </Link>
+              )}
+            </span>
+            <AuthButton signedIn={!!a} />
+          </>
+        }
+        tabs={a && <RouteTabs />}
+      />
       {children}
     </>
   );
@@ -47,9 +64,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
           <p className="px-3 text-xs text-kumo-subtle">Workspace</p>
           <nav className="mt-3 space-y-1 text-sm">
-            <Link href="/" className="flex items-center gap-3 rounded-md bg-kumo-tint px-3 py-2">
-              <DatabaseIcon size={16} /> R2 Buckets
-            </Link>
+            <Suspense fallback={null}>
+              <WorkspaceLinks />
+            </Suspense>
           </nav>
           <Suspense fallback={null}>
             <UserBuckets />
