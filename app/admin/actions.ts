@@ -32,6 +32,18 @@ export async function allowUser(_: string | null, form: FormData) {
   }
 }
 
+export async function promoteUser(subject: unknown) {
+  if (!(await getAccess())?.admin) return denied;
+  if (typeof subject !== "string" || !subject.trim() || subject.length > 200)
+    return "Enter a valid Hack Club Auth ID.";
+  await db.query(
+    "INSERT INTO app_access(subject,allowed,admin) VALUES($1,true,true) ON CONFLICT(subject) DO UPDATE SET allowed=true,admin=true",
+    [subject.trim()],
+  );
+  revalidatePath("/", "layout");
+  return null;
+}
+
 export async function assignBucket(_: string | null, form: FormData) {
   if (!(await getAccess())?.admin) return denied;
   const [bucket, owner] = [form.get("bucket"), form.get("owner")];

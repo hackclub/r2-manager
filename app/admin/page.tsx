@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { db } from "@/lib/db";
 import { cloudflareBuckets } from "@/lib/cloudflare";
-import { AccessForm, AssignmentForm } from "./forms";
+import { AccessForm, AssignmentForm, PromoteButton } from "./forms";
 
 async function Admin() {
   if (!(await getAccess())?.admin) notFound();
@@ -38,6 +38,7 @@ async function Admin() {
         {Array.from(subjects).map((subject) => {
           const entry = entries.rows.find((e) => e.subject === subject);
           const allowed = Boolean(entry?.allowed || entry?.admin);
+          const name = users.rows.find((u) => u.subject === subject)?.name;
           return (
             <div
               key={subject}
@@ -45,14 +46,18 @@ async function Admin() {
             >
               <div>
                 <p>
-                  {users.rows.find((u) => u.subject === subject)?.name || "Not signed in yet"}{" "}
-                  {entry?.admin && "· Administrator"}
+                  {name || "Not signed in yet"} {entry?.admin && "· Administrator"}
                 </p>
                 <p className="text-sm text-kumo-subtle">
                   {subject} · {allowed ? "Allowed" : "Blocked"}
                 </p>
               </div>
-              {!entry?.admin && <AccessForm subject={subject} allowed={allowed} />}
+              {!entry?.admin && (
+                <div className="flex flex-wrap items-center gap-3">
+                  <PromoteButton subject={subject} name={name || subject} />
+                  <AccessForm subject={subject} allowed={allowed} />
+                </div>
+              )}
             </div>
           );
         })}

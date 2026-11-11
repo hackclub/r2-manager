@@ -1,9 +1,51 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useState, useTransition } from "react";
 import { Input } from "@cloudflare/kumo/components/input";
 import { Button } from "@cloudflare/kumo/components/button";
 import { Select } from "@cloudflare/kumo/components/select";
-import { allowUser, assignBucket } from "./actions";
+import { ConfirmDialog, attempt } from "../confirm-dialog";
+import { allowUser, assignBucket, promoteUser } from "./actions";
+
+export function PromoteButton({ subject, name }: { subject: string; name: string }) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => {
+          setError("");
+          setOpen(true);
+        }}
+      >
+        Make administrator
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        onConfirm={() =>
+          start(async () => {
+            const e = await attempt(() => promoteUser(subject), "Could not promote this user.");
+            setError(e);
+            if (!e) setOpen(false);
+          })
+        }
+        title="Make administrator?"
+        description={
+          <>
+            <strong>{name}</strong> will be able to manage access, assign buckets, and promote other
+            administrators. Administrator access cannot be revoked from this page.
+          </>
+        }
+        confirmLabel="Make administrator"
+        pending={pending}
+        error={error}
+      />
+    </>
+  );
+}
 
 export function AccessForm({ subject, allowed }: { subject?: string; allowed?: boolean }) {
   const [message, action, pending] = useActionState(allowUser, null);
