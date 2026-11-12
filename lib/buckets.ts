@@ -13,7 +13,7 @@ export const listBuckets = cache(async function listBuckets({ user, admin }: Acc
     created_at: Date;
     role: BucketRole;
   }>(
-    "SELECT b.name, b.status, b.created_at, COALESCE(m.role, 'manager') AS role FROM managed_buckets b LEFT JOIN bucket_members m ON m.bucket_name=b.name AND m.user_id=$1 WHERE m.user_id IS NOT NULL OR $2 ORDER BY b.created_at DESC",
+    "SELECT b.name, b.status, b.created_at, CASE WHEN $2 THEN 'manager' ELSE m.role END AS role FROM managed_buckets b LEFT JOIN bucket_members m ON m.bucket_name=b.name AND m.user_id=$1 WHERE m.user_id IS NOT NULL OR $2 ORDER BY b.created_at DESC",
     [user.id, admin],
   );
   if (!admin) return rows;

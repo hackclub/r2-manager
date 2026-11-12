@@ -5,6 +5,7 @@ import { cimd } from "@better-auth/cimd";
 import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { db } from "./db";
 import { mcpResource } from "./mcp/resource";
+import { grantBinding } from "./mcp/grant-policy";
 import { mcpScopes } from "./mcp/scopes";
 
 export const auth = betterAuth({
@@ -30,6 +31,7 @@ export const auth = betterAuth({
     jwt({ disableSettingJwtHeader: true }),
     mcp({
       resource: mcpResource,
+      extensions: [grantBinding],
       loginPage: "/oauth/sign-in",
       consentPage: "/oauth/consent",
       scopes: ["openid", "offline_access", ...mcpScopes],

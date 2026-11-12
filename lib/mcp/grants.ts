@@ -1,15 +1,23 @@
 import "server-only";
 import { accessForUser } from "../access";
 import { db, tx } from "../db";
+import { currentConsent, grantMatches } from "./grant-policy";
 import { isScope, type Scope } from "./scopes";
 
-export async function authorizeGrant({ sub, azp }: { sub?: unknown; azp?: unknown }) {
+export async function authorizeGrant({
+  sub,
+  azp,
+  r2_grant,
+  scope,
+}: {
+  sub?: unknown;
+  azp?: unknown;
+  r2_grant?: unknown;
+  scope?: unknown;
+}) {
   if (typeof sub !== "string" || typeof azp !== "string") return null;
-  const [access, consent] = await Promise.all([
-    accessForUser(sub),
-    db.query('SELECT 1 FROM "oauthConsent" WHERE "userId"=$1 AND "clientId"=$2', [sub, azp]),
-  ]);
-  return access?.allowed && consent.rowCount ? access : null;
+  const [access, consent] = await Promise.all([accessForUser(sub), currentConsent(sub, azp)]);
+  return access?.allowed && grantMatches(consent, r2_grant, scope) ? access : null;
 }
 
 export type Connection = {
