@@ -10,7 +10,7 @@ const notice = "mt-8 rounded-lg border border-kumo-line bg-kumo-tint p-6";
 
 async function Dashboard() {
   const access = await getAccess();
-  const buckets = access?.allowed ? await listBuckets(access.user.id) : [];
+  const buckets = access?.allowed ? await listBuckets(access) : [];
   return (
     <div className="flex flex-col xl:flex-row">
       <main className="min-w-0 flex-1 px-6 py-8 lg:px-8">

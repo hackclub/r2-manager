@@ -13,7 +13,7 @@ async function WorkspaceLinks() {
 
 async function UserBuckets() {
   const a = await getAccess();
-  const buckets = a?.allowed ? await listBuckets(a.user.id) : [];
+  const buckets = a?.allowed ? await listBuckets(a) : [];
   return (
     buckets.length > 0 && (
       <SidebarBuckets buckets={buckets.map(({ name, status }) => ({ name, status }))} />

@@ -49,22 +49,58 @@ const text = ["application/json", "application/xml", "application/javascript"];
 export const validObjectKey = (key: string) =>
   key.length > 0 && Buffer.byteLength(key) <= 1024 && !hasControl(key);
 
+export const maxUploadSize = 300 * 1024 * 1024;
+
 export const objectUrl = async (
   Bucket: string,
   Key: string,
   method: "get" | "put",
-  size?: number,
+  { size, expiresIn = 60 }: { size?: number; expiresIn?: number } = {},
 ) =>
   method === "get"
     ? getSignedUrl(
         await client(),
         new GetObjectCommand({ Bucket, Key, ResponseContentDisposition: "attachment" }),
-        { expiresIn: 60 },
+        { expiresIn },
       )
     : getSignedUrl(await client(), new PutObjectCommand({ Bucket, Key, ContentLength: size }), {
-        expiresIn: 60,
+        expiresIn,
         signableHeaders: new Set(["content-length"]),
       });
+
+export async function readObject(Bucket: string, Key: string, limit: number) {
+  const r = await (
+    await client()
+  ).send(new GetObjectCommand({ Bucket, Key, Range: `bytes=0-${limit - 1}` }));
+  const size = Number(r.ContentRange?.split("/")[1] ?? r.ContentLength);
+  return {
+    body: (await r.Body?.transformToByteArray()) ?? new Uint8Array(),
+    size,
+    contentType: r.ContentType || "application/octet-stream",
+  };
+}
+
+export async function writeObject(
+  Bucket: string,
+  Key: string,
+  Body: Uint8Array,
+  ContentType: string,
+  overwrite: boolean,
+) {
+  const r = await (
+    await client()
+  ).send(
+    new PutObjectCommand({
+      Bucket,
+      Key,
+      Body,
+      ContentType,
+      ContentLength: Body.byteLength,
+      ...(!overwrite && { IfNoneMatch: "*" }),
+    }),
+  );
+  return { etag: r.ETag };
+}
 
 export async function removeObject(Bucket: string, Key: string) {
   await (await client()).send(new DeleteObjectCommand({ Bucket, Key }));

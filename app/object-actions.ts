@@ -2,7 +2,14 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { bucketAccess, withBucket } from "@/lib/objects";
-import { hasMultipartUploads, objectUrl, putFolder, removeObject, validObjectKey } from "@/lib/s3";
+import {
+  hasMultipartUploads,
+  maxUploadSize,
+  objectUrl,
+  putFolder,
+  removeObject,
+  validObjectKey,
+} from "@/lib/s3";
 import { bucketSetting, cf, cloudflareConfigured, r2 } from "@/lib/cloudflare";
 import { jobState } from "@/lib/format";
 
@@ -10,10 +17,10 @@ export async function createUploadUrl(bucket: string, key: string, size: number)
   if (!(await bucketAccess(bucket, "editor")) || typeof key !== "string")
     return { error: "Bucket not found." };
   if (!validObjectKey(key)) return { error: "Invalid object name." };
-  if (!Number.isSafeInteger(size) || size < 0 || size > 300 * 1024 * 1024)
+  if (!Number.isSafeInteger(size) || size < 0 || size > maxUploadSize)
     return { error: "Files must be 300 MB or smaller." };
   try {
-    return { url: await objectUrl(bucket, key, "put", size) };
+    return { url: await objectUrl(bucket, key, "put", { size }) };
   } catch {
     return { error: "Unable to prepare upload. Contact the administrator." };
   }

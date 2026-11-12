@@ -27,6 +27,7 @@ mock.module("next/navigation", () => ({
 }));
 mock.module("../lib/s3", () => ({
   validObjectKey: (key) => typeof key === "string" && key.length > 0,
+  maxUploadSize: 300 * 1024 * 1024,
   objectUrl: async () => {
     writes.push("upload");
     return "https://example.invalid/upload";
