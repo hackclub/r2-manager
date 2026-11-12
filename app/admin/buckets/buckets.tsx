@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AssignmentForm } from "../forms";
+import { AssignmentForm, RemoveMemberButton } from "../forms";
 import { EmptyState, ListControls, Status } from "../list-controls";
 
 type Bucket = {
   name: string;
   status: "assigned" | "unassigned" | "retired";
-  owner: { name: string; email: string | null } | null;
+  members: { id: string; name: string; email: string }[];
 };
 
 export function Buckets({
@@ -24,7 +24,9 @@ export function Buckets({
   const visible = buckets.filter(
     (b) =>
       (filter === "all" || b.status === filter) &&
-      [b.name, b.owner?.name, b.owner?.email].some((v) => v?.toLowerCase().includes(search)),
+      [b.name, ...b.members.flatMap((m) => [m.name, m.email])].some((v) =>
+        v?.toLowerCase().includes(search),
+      ),
   );
   const labels = { assigned: "Assigned", unassigned: "Unassigned", retired: "Retired name" };
   return (
@@ -35,14 +37,14 @@ export function Buckets({
           <span className="ml-1 text-sm font-normal text-kumo-subtle">{buckets.length}</span>
         </h2>
         <p className="mt-1 text-sm text-kumo-subtle">
-          Find an owner for existing Cloudflare buckets and review current assignments.
+          Manage the people who can access each bucket.
         </p>
       </div>
       <div className="rounded-xl border border-kumo-line bg-kumo-elevated p-5 text-sm">
-        <p className="font-medium">Assigning a bucket grants full control</p>
+        <p className="font-medium">Bucket access grants full control</p>
         <p className="mt-1 text-kumo-subtle">
-          The owner can manage its objects and settings. Owners must sign in at least once. Manage
-          access on the{" "}
+          People with access can manage objects, settings, and API keys. They must sign in at least
+          once. Administrators always have access. Manage app access on the{" "}
           <Link href="/admin/users" className="text-kumo-default underline">
             Users page
           </Link>
@@ -52,7 +54,7 @@ export function Buckets({
       <ListControls
         query={query}
         onQueryChange={setQuery}
-        placeholder="Search bucket or owner"
+        placeholder="Search bucket or person"
         filter={filter}
         onFilterChange={setFilter}
         options={[
@@ -78,11 +80,20 @@ export function Buckets({
                   <p className="break-all font-mono text-sm font-medium">{b.name}</p>
                   <Status active={b.status === "assigned"}>{labels[b.status]}</Status>
                 </div>
-                {b.owner && (
-                  <p className="mt-2 break-words text-sm text-kumo-subtle">
-                    Owner: <span className="text-kumo-default">{b.owner.name}</span>
-                    {b.owner.email && <span className="break-all"> · {b.owner.email}</span>}
-                  </p>
+                {b.members.length > 0 && (
+                  <ul className="mt-3 space-y-2" aria-label={`People with access to ${b.name}`}>
+                    {b.members.map((m) => (
+                      <li key={m.id} className="flex flex-wrap items-center gap-3 text-sm">
+                        <span>
+                          {m.name} <span className="break-all text-kumo-subtle">· {m.email}</span>
+                        </span>
+                        <RemoveMemberButton bucket={b.name} user={m} />
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {b.status === "assigned" && !b.members.length && (
+                  <p className="mt-2 text-sm text-kumo-subtle">Only administrators have access.</p>
                 )}
                 {b.status === "retired" && (
                   <p className="mt-2 text-sm text-kumo-subtle">
@@ -91,13 +102,17 @@ export function Buckets({
                   </p>
                 )}
               </div>
-              {b.status === "unassigned" && (
+              {b.status !== "retired" && (
                 <div className="min-w-0 xl:max-w-lg">
                   {users.length ? (
-                    <AssignmentForm bucket={b.name} users={users} />
+                    <AssignmentForm
+                      key={b.members.map((m) => m.id).join(",")}
+                      bucket={b.name}
+                      users={users.filter((u) => !b.members.some((m) => m.id === u.id))}
+                    />
                   ) : (
                     <p className="text-sm text-kumo-subtle">
-                      No owners available. A user must sign in first.
+                      No people available. A user must sign in first.
                     </p>
                   )}
                 </div>

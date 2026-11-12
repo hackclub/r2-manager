@@ -9,7 +9,7 @@ export const listBuckets = cache(async function listBuckets(owner: string) {
   const a = await getAccess();
   const admin = a?.user.id === owner && a.admin;
   const { rows } = await db.query<{ name: string; status: string; created_at: Date }>(
-    "SELECT name, status, created_at FROM managed_buckets WHERE owner_id = $1 OR $2 ORDER BY created_at DESC",
+    "SELECT name, status, created_at FROM managed_buckets WHERE EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$1) OR $2 ORDER BY created_at DESC",
     [owner, admin],
   );
   if (!admin) return rows;
@@ -41,13 +41,13 @@ export async function createBucket(
   try {
     const error = await tx(async (c) => {
       await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [owner]);
-      return (
-        (await reserveName(c, name)) ??
-        void (await c.query(
-          "INSERT INTO managed_buckets (name, owner_id, status) VALUES ($1, $2, 'pending')",
-          [name, owner],
-        ))
+      const error = await reserveName(c, name);
+      if (error) return error;
+      await c.query(
+        "INSERT INTO managed_buckets (name, owner_id, status) VALUES ($1, $2, 'pending')",
+        [name, owner],
       );
+      await c.query("INSERT INTO bucket_members(bucket_name,user_id) VALUES($1,$2)", [name, owner]);
     });
     if (error) return error;
   } catch (e) {

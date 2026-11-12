@@ -9,7 +9,7 @@ export async function ownedActiveBucket(owner: string, name: string) {
   if (a?.user.id === owner && a.admin)
     return (await cloudflareBuckets()).some((b) => b.name === name);
   const r = await db.query(
-    "SELECT 1 FROM managed_buckets WHERE owner_id = $1 AND name = $2 AND status = 'active'",
+    "SELECT 1 FROM managed_buckets WHERE EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$1) AND name = $2 AND status = 'active'",
     [owner, name],
   );
   return r.rows.length === 1;
@@ -67,7 +67,7 @@ export async function withBucket<T>(
     async (c) =>
       (
         await c.query(
-          "SELECT 1 FROM managed_buckets WHERE name=$1 AND (owner_id=$2 OR $3) AND status='active'",
+          "SELECT 1 FROM managed_buckets WHERE name=$1 AND (EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$2) OR $3) AND status='active'",
           [bucket, a.user.id, a.admin],
         )
       ).rowCount ||

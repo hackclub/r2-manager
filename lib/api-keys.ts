@@ -103,7 +103,7 @@ const credentials = (
 
 export async function ownedKeyBuckets(owner: string, q: Pick<PoolClient, "query"> = db) {
   const { rows } = await q.query<{ name: string }>(
-    "SELECT name FROM managed_buckets WHERE owner_id=$1 AND status='active' ORDER BY name",
+    "SELECT name FROM managed_buckets WHERE EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$1) AND status='active' ORDER BY name",
     [owner],
   );
   return rows.map((b) => b.name);
@@ -154,7 +154,7 @@ export const issueKey = (
     try {
       await c.query("BEGIN");
       const owned = await c.query(
-        "SELECT name FROM managed_buckets WHERE owner_id=$1 AND status='active' AND name=ANY($2::text[]) FOR UPDATE",
+        "SELECT name FROM managed_buckets WHERE EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$1) AND status='active' AND name=ANY($2::text[]) FOR UPDATE",
         [owner, request.buckets],
       );
       if (owned.rows.length !== request.buckets.length)
@@ -347,4 +347,15 @@ export const rollOwnedKey = (
       );
     }
     return credentials(key, key.cloudflare_id, value, key.expires_at);
+  });
+
+/** Serialize with key creation/rolling so no credentials can escape a membership removal. */
+export const removeBucketMember = (bucket: string, user: string) =>
+  withOwnerLock(user, async (c) => {
+    const keys = await c.query<KeyRow>(
+      "SELECT * FROM managed_api_keys WHERE owner_id=$1 AND $2=ANY(buckets) AND status IN ('pending','active','revoke_pending') AND expires_at>now()",
+      [user, bucket],
+    );
+    for (const key of keys.rows) await revokeRow(c, key);
+    await c.query("DELETE FROM bucket_members WHERE bucket_name=$1 AND user_id=$2", [bucket, user]);
   });

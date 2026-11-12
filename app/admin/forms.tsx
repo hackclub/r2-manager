@@ -4,7 +4,7 @@ import { Input } from "@cloudflare/kumo/components/input";
 import { Button } from "@cloudflare/kumo/components/button";
 import { Select } from "@cloudflare/kumo/components/select";
 import { ConfirmDialog, attempt } from "../confirm-dialog";
-import { allowUser, assignBucket, promoteUser } from "./actions";
+import { allowUser, assignBucket, promoteUser, removeBucketAccess } from "./actions";
 
 export function PromoteButton({ subject, name }: { subject: string; name: string }) {
   const [open, setOpen] = useState(false);
@@ -85,16 +85,67 @@ export function AssignmentForm({
       <input type="hidden" name="bucket" value={bucket} />
       <input type="hidden" name="owner" value={owner ?? ""} />
       <Select
-        aria-label={`Owner for ${bucket}`}
+        aria-label={`Add person to ${bucket}`}
         placeholder="Select a registered user"
         value={owner}
         onValueChange={setOwner}
         items={Object.fromEntries(users.map((u) => [u.id, `${u.name} (${u.email})`]))}
       />
       <Button type="submit" variant="secondary" disabled={!owner} loading={pending}>
-        Assign bucket
+        Add person
       </Button>
       {message && <output className="text-sm text-kumo-subtle">{message}</output>}
     </form>
+  );
+}
+
+export function RemoveMemberButton({
+  bucket,
+  user,
+}: {
+  bucket: string;
+  user: { id: string; name: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        onClick={() => {
+          setError("");
+          setOpen(true);
+        }}
+      >
+        Remove
+      </Button>
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Remove bucket access?"
+        description={
+          <>
+            <strong>{user.name}</strong> will lose access to <strong>{bucket}</strong>. Their API
+            keys that include this bucket will be revoked, including access to other buckets on
+            those keys. Administrators retain access through their administrator role.
+          </>
+        }
+        confirmLabel="Remove access"
+        pending={pending}
+        error={error}
+        onConfirm={() =>
+          start(async () => {
+            const e = await attempt(
+              () => removeBucketAccess(bucket, user.id),
+              "Could not remove access.",
+            );
+            setError(e);
+            if (!e) setOpen(false);
+          })
+        }
+      />
+    </>
   );
 }
