@@ -1,38 +1,26 @@
 import "server-only";
-import { getAccess } from "./access";
+import { getAccess, type Access } from "./access";
 import { cf, cloudflareBuckets, r2 } from "./cloudflare";
 import type { PoolClient } from "pg";
 import { db, withLock } from "./db";
 import { hasBucketRole, bucketRoles, type BucketRole } from "./bucket-policy";
 
-export async function ownedActiveBucket(
-  owner: string,
-  name: string,
-  required: BucketRole = "viewer",
-) {
-  const a = await getAccess();
-  if (a?.user.id === owner && a.admin)
-    return (await cloudflareBuckets()).some((b) => b.name === name);
+export async function bucketRole(a: Access, bucket: string): Promise<BucketRole | undefined> {
+  if (!a.allowed) return;
+  if (a.admin)
+    return (await cloudflareBuckets()).some((b) => b.name === bucket) ? "manager" : undefined;
   const r = await db.query<{ role: BucketRole }>(
     "SELECT m.role FROM managed_buckets b JOIN bucket_members m ON m.bucket_name=b.name WHERE m.user_id=$1 AND b.name=$2 AND b.status='active'",
-    [owner, name],
+    [a.user.id, bucket],
   );
-  return hasBucketRole(r.rows[0]?.role, required);
+  return r.rows[0]?.role;
 }
 
 /** Recheck permissions at every server entry point; never rely on hidden UI controls. */
 export async function bucketAccess(bucket: unknown, required: BucketRole = "viewer") {
   const a = await getAccess();
-  if (!a?.allowed || typeof bucket !== "string") return null;
-  if (a.admin)
-    return (await ownedActiveBucket(a.user.id, bucket, required))
-      ? { ...a, role: "manager" as const }
-      : null;
-  const r = await db.query<{ role: BucketRole }>(
-    "SELECT m.role FROM managed_buckets b JOIN bucket_members m ON m.bucket_name=b.name WHERE m.user_id=$1 AND b.name=$2 AND b.status='active'",
-    [a.user.id, bucket],
-  );
-  const role = r.rows[0]?.role;
+  if (!a || typeof bucket !== "string") return null;
+  const role = await bucketRole(a, bucket);
   return hasBucketRole(role, required) ? { ...a, role } : null;
 }
 

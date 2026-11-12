@@ -27,6 +27,7 @@ mock.module("next/navigation", () => ({
 }));
 mock.module("../lib/s3", () => ({
   validObjectKey: (key) => typeof key === "string" && key.length > 0,
+  maxUploadSize: 300 * 1024 * 1024,
   objectUrl: async () => {
     writes.push("upload");
     return "https://example.invalid/upload";
@@ -70,6 +71,8 @@ mock.module("../lib/cloudflare", () => ({
   },
 }));
 const { db } = await import("../lib/db");
+const { listBuckets } = await import("../lib/buckets");
+const { currentConsent, grantMatches, grantBinding } = await import("../lib/mcp/grant-policy");
 const { bucketAccess, withBucket } = await import("../lib/objects");
 const { issueKey, rollOwnedKey } = await import("../lib/api-keys");
 const { assignBucket, changeBucketRole } = await import("../app/admin/actions");
@@ -102,12 +105,15 @@ beforeAll(async () => {
   );
   await db.query(await readFile(new URL("../db/schema.sql", import.meta.url), "utf8"));
   await db.query(
+    'CREATE TABLE "oauthConsent" (id text PRIMARY KEY, "userId" text, "clientId" text, "referenceId" text, scopes jsonb NOT NULL)',
+  );
+  await db.query(
     `INSERT INTO "user" VALUES ('alice','alice@hackclub.com',true),('bob','bob@hackclub.com',true),('admin','admin@hackclub.com',true); INSERT INTO account VALUES ('alice','hackclub','alice'),('bob','hackclub','bob');`,
   );
 });
 beforeEach(async () => {
   if (!enabled) return;
-  await db.query(`TRUNCATE managed_api_keys,managed_buckets CASCADE;
+  await db.query(`TRUNCATE "oauthConsent",managed_api_keys,managed_buckets CASCADE;
     INSERT INTO managed_buckets(name,owner_id,status) VALUES ('shared','alice','active'),('other','alice','active');
     INSERT INTO bucket_members(bucket_name,user_id) VALUES ('shared','alice'),('other','alice'),('shared','bob');`);
   asUser();
@@ -268,3 +274,44 @@ integration(
     expect(writes.at(-1)).toEqual({ path: "/cors", body: { rules: [] } });
   },
 );
+
+integration("bucket listings report effective admin roles and preserve member roles", async () => {
+  await db.query("UPDATE bucket_members SET role='viewer' WHERE user_id='alice'");
+  asUser();
+  expect((await listBuckets(access)).find((b) => b.name === "shared").role).toBe("viewer");
+  asUser("alice", true);
+  expect((await listBuckets(access)).find((b) => b.name === "shared").role).toBe("manager");
+  expect((await bucketAccess("shared")).role).toBe("manager");
+});
+
+integration("token binding requires the current consent and approved scopes", async () => {
+  const scopes = ["r2:read", "r2:write"];
+  await db.query('INSERT INTO "oauthConsent" VALUES ($1,$2,$3,NULL,$4)', [
+    "approval-one",
+    "alice",
+    "app",
+    JSON.stringify(scopes),
+  ]);
+  const input = { user: { id: "alice" }, client: { clientId: "app" }, scopes };
+  expect(await grantBinding.claims.accessToken(input)).toEqual({ r2_grant: "approval-one" });
+  let consent = await currentConsent("alice", "app");
+  expect(grantMatches(consent, "approval-one", "r2:read r2:write")).toBe(true);
+  expect(grantMatches(consent, undefined, "r2:read")).toBe(false);
+  expect(await currentConsent("bob", "app")).toBeUndefined();
+  await db.query('DELETE FROM "oauthConsent"');
+  expect(grantMatches(await currentConsent("alice", "app"), "approval-one", "r2:read")).toBe(false);
+  await db.query('INSERT INTO "oauthConsent" VALUES ($1,$2,$3,NULL,$4)', [
+    "approval-two",
+    "alice",
+    "app",
+    JSON.stringify(["r2:read"]),
+  ]);
+  consent = await currentConsent("alice", "app");
+  expect(grantMatches(consent, "approval-one", "r2:read")).toBe(false);
+  expect(grantMatches(consent, "approval-two", "r2:read r2:write")).toBe(false);
+  expect(grantMatches(consent, "approval-two", "r2:read")).toBe(true);
+  expect(await grantBinding.claims.accessToken({ ...input, scopes: ["r2:read"] })).toEqual({
+    r2_grant: "approval-two",
+  });
+  await expect(grantBinding.claims.accessToken(input)).rejects.toThrow("approved again");
+});

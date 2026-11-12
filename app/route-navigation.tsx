@@ -48,6 +48,7 @@ const home = {
   "/": "Overview",
   "/analytics": "Metrics",
   "/api-keys": "API Keys",
+  "/mcp": "MCP",
   "/billing": "Billing",
 };
 const sections = {

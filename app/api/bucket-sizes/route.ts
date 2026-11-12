@@ -5,7 +5,7 @@ import { graphql } from "@/lib/cloudflare";
 export async function GET() {
   const a = await getAccess();
   if (!a?.allowed) return Response.json({}, { status: 403 });
-  const buckets = await listBuckets(a.user.id);
+  const buckets = await listBuckets(a);
   const sizes: Record<string, number | null> = Object.fromEntries(
     buckets.map((b) => [b.name, null]),
   );

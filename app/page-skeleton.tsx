@@ -10,6 +10,10 @@ const descriptions = {
     "Monitor upload and download traffic, storage, and operations for your buckets.",
   ],
   keys: ["API Keys", "Key me up! These keys give your apps access to your Cloudflare R2 buckets."],
+  mcp: [
+    "MCP",
+    "Let AI assistants browse and manage your buckets. Connected apps sign in as you, ask for your approval, and can never do more than your bucket roles allow.",
+  ],
   billing: [
     "Billing",
     "Usage and estimated cost for buckets currently assigned to you. This is not a bill or invoice, R2 is free for your work :)",
