@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DatabaseIcon, UsersIcon } from "@phosphor-icons/react";
+import { DatabaseIcon, UsersIcon, CurrencyDollarIcon } from "@phosphor-icons/react";
 
 export function AdminNavigation() {
   const path = usePathname();
@@ -11,6 +11,7 @@ export function AdminNavigation() {
       {[
         { href: "/admin/users", label: "Users", icon: UsersIcon },
         { href: "/admin/buckets", label: "Buckets", icon: DatabaseIcon },
+        { href: "/admin/billing", label: "Billing", icon: CurrencyDollarIcon },
       ].map(({ href, label, icon: Icon }) => (
         <Link
           key={href}

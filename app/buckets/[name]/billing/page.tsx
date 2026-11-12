@@ -5,9 +5,10 @@ import { BillingContent } from "@/app/billing/content";
 
 type Props = { params: Promise<{ name: string }> };
 async function Billing({ params }: Props) {
-  const a = await bucketAccess((await params).name);
+  const { name } = await params;
+  const a = await bucketAccess(name);
   if (!a) notFound();
-  return <BillingContent owner={a.user.id} />;
+  return <BillingContent scope={{ bucket: name }} />;
 }
 export default function Page(props: Props) {
   return (

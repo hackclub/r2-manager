@@ -3,7 +3,7 @@ import { cache } from "react";
 import { ownedKeyBuckets } from "./api-keys";
 import { operationClass } from "./analytics";
 import { rates, emptyUsage, usageCost, type StorageClass } from "./billing-cost";
-import { graphql } from "./cloudflare";
+import { cloudflareBuckets, graphql } from "./cloudflare";
 
 type Storage = { dimensions: { date: string; storageClass: string }; max: { payloadSize: number } };
 type Operation = {
@@ -61,9 +61,16 @@ export async function bucketBill(name: string) {
 }
 
 export async function ownedBills(owner: string) {
-  const names = await ownedKeyBuckets(owner);
+  return billsForBuckets(await ownedKeyBuckets(owner));
+}
+
+export async function accountBills() {
+  return billsForBuckets((await cloudflareBuckets()).map((b) => b.name).sort());
+}
+
+export async function billsForBuckets(names: string[]) {
   const rows: { name: string; bill: Awaited<ReturnType<typeof bucketBill>> }[] = [];
-  // Bound concurrent Cloudflare requests for accounts with many assigned buckets.
+  // Bound concurrent Cloudflare requests for accounts with many buckets.
   for (let i = 0; i < names.length; i += 4)
     rows.push(
       ...(await Promise.all(

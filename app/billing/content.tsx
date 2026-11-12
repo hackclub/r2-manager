@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { billingPeriod, ownedBills, type bucketBill } from "@/lib/billing";
+import {
+  billingPeriod,
+  ownedBills,
+  accountBills,
+  billsForBuckets,
+  type bucketBill,
+} from "@/lib/billing";
 import { money } from "@/lib/billing-cost";
 import { formatBytes, formatCount, bucketHref } from "@/lib/format";
 import { InfoTip } from "@/app/info-tip";
@@ -13,15 +19,24 @@ import {
   KumoTableCell as Cell,
 } from "@/app/kumo-table";
 
-export function BillingContent({ owner }: { owner: string }) {
+type BillingScope = { owner: string } | { bucket: string } | { account: true };
+
+export function BillingContent({ scope }: { scope: BillingScope }) {
+  const account = "account" in scope;
   return (
-    <main className="space-y-8 px-6 py-8 lg:px-8">
+    <section className={`space-y-8 ${account ? "" : "px-6 py-8 lg:px-8"}`}>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold">Billing</h1>
           <p className="mt-2 text-sm text-kumo-subtle">
-            Usage and estimated cost for buckets currently assigned to you. This is not a bill or
-            invoice, R2 is free for your work :)
+            {"bucket" in scope
+              ? `Usage and estimated cost for ${scope.bucket}.`
+              : account
+                ? "Usage and estimated cost for all buckets in the Cloudflare account, including unassigned buckets."
+                : "Usage and estimated cost for buckets currently assigned to you."}{" "}
+            {account
+              ? "Estimates are before shared allowances and rounding; this is not a Cloudflare invoice."
+              : "This is not a bill or invoice, R2 is free for your work :)"}
           </p>
         </div>
         <p className="rounded-md border border-kumo-line px-3 py-2 text-sm text-kumo-subtle">
@@ -37,7 +52,7 @@ export function BillingContent({ owner }: { owner: string }) {
           />
         }
       >
-        <Usage owner={owner} />
+        <Usage scope={scope} />
       </Suspense>
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -78,15 +93,19 @@ export function BillingContent({ owner }: { owner: string }) {
           </Table>
         </div>
       </section>
-    </main>
+    </section>
   );
 }
-async function Usage({ owner }: { owner: string }) {
-  const rows = await ownedBills(owner);
+async function Usage({ scope }: { scope: BillingScope }) {
+  const rows = await ("bucket" in scope
+    ? billsForBuckets([scope.bucket])
+    : "owner" in scope
+      ? ownedBills(scope.owner)
+      : accountBills());
   if (!rows.length)
     return (
       <section className="flex min-h-82.5 flex-col items-center justify-center rounded-lg border border-kumo-line p-6 text-center">
-        <h2 className="font-medium">No assigned buckets</h2>
+        <h2 className="font-medium">{"owner" in scope ? "No assigned buckets" : "No buckets"}</h2>
         <p className="mt-2 text-sm text-kumo-subtle">
           Your bucket usage and cost breakdown will appear here.
         </p>
