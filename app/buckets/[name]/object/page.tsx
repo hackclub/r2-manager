@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 /* oxlint-disable next/no-img-element, jsx-a11y/media-has-caption -- Private object previews use original media; caption tracks are not supplied. */
 import { Suspense } from "react";
 import Link from "next/link";
@@ -178,7 +179,7 @@ async function Details({ params, searchParams }: Props) {
 }
 export default function Page(props: Props) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="object" />}>
       <Details {...props} />
     </Suspense>
   );

@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
@@ -10,7 +11,7 @@ async function Billing() {
 }
 export default function Page() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="billing" />}>
       <Billing />
     </Suspense>
   );

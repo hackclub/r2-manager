@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getAccess } from "@/lib/access";
@@ -19,7 +20,7 @@ async function Analytics({ searchParams }: Props) {
 }
 export default function Page(props: Props) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="metrics" />}>
       <Analytics {...props} />
     </Suspense>
   );

@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { Suspense } from "react";
 import { getAccess } from "@/lib/access";
 import { listBuckets } from "@/lib/buckets";
@@ -75,7 +76,7 @@ async function Dashboard() {
 }
 export default function Home() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="overview" />}>
       <Dashboard />
     </Suspense>
   );

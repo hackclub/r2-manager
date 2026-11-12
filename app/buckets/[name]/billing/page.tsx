@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { bucketAccess } from "@/lib/objects";
@@ -12,7 +13,7 @@ async function Billing({ params }: Props) {
 }
 export default function Page(props: Props) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="bucketBilling" />}>
       <Billing {...props} />
     </Suspense>
   );

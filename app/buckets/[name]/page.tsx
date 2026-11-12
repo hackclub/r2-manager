@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { formatBytes, formatCount } from "@/lib/format";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -104,7 +105,7 @@ async function Contents({ params, searchParams }: Props) {
 }
 export default function Page(props: Props) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="objects" />}>
       <Contents {...props} />
     </Suspense>
   );

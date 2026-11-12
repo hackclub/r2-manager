@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getAccess } from "@/lib/access";
@@ -40,7 +41,7 @@ async function Content() {
 
 export default function Page() {
   return (
-    <Suspense fallback={<output className="block text-sm text-kumo-subtle">Loading users…</output>}>
+    <Suspense fallback={<PageSkeleton page="users" />}>
       <Content />
     </Suspense>
   );

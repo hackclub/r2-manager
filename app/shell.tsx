@@ -78,7 +78,22 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
       <div className="min-w-0">
-        <Suspense fallback={null}>
+        <Suspense
+          fallback={
+            <>
+              <Suspense
+                fallback={
+                  <header className="flex h-14 items-center border-b border-kumo-line px-4 text-sm text-kumo-subtle sm:px-6">
+                    R2 Object Storage
+                  </header>
+                }
+              >
+                <RouteNavigation auth={null} tabs={null} />
+              </Suspense>
+              {children}
+            </>
+          }
+        >
           <ShellBody>{children}</ShellBody>
         </Suspense>
       </div>

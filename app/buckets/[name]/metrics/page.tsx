@@ -1,3 +1,4 @@
+import { PageSkeleton } from "@/app/page-skeleton";
 import { bucketHref } from "@/lib/format";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
@@ -18,7 +19,7 @@ async function Metrics({ params, searchParams }: Props) {
 }
 export default function Page(props: Props) {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<PageSkeleton page="metrics" />}>
       <Metrics {...props} />
     </Suspense>
   );
