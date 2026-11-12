@@ -83,6 +83,9 @@ async function Settings({ params }: { params: Promise<{ name: string }> }) {
     )
   ).rows.map((d) => ({ domain: d.hostname, reservation: d.status }));
   const details = bucket.status === "fulfilled" ? bucket.value : undefined;
+  const publicAccess =
+    (managed.status === "fulfilled" && managed.value.enabled) ||
+    (custom.status === "fulfilled" && custom.value.domains.some((domain) => domain.enabled));
   const loc = details?.location?.toLowerCase();
   const created = new Date(details?.creation_date ?? NaN);
   const ruleForm = (setting: "cors" | "lifecycle" | "lock", r: typeof cors) =>
@@ -167,12 +170,14 @@ async function Settings({ params }: { params: Promise<{ name: string }> }) {
           unavailable
         )}
       </Section>
-      <Section
-        title="CORS Policy"
-        info="Specify which origins can make browser requests. Saving replaces the current rules."
-      >
-        {ruleForm("cors", cors)}
-      </Section>
+      {publicAccess && (
+        <Section
+          title="CORS Policy"
+          info="Specify which origins can make browser requests. Saving replaces the current rules."
+        >
+          {ruleForm("cors", cors)}
+        </Section>
+      )}
       <Section
         title="Object Lifecycle Rules"
         info="Rules can automatically delete or transition objects. Saving replaces all current rules."
