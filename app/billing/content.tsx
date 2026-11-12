@@ -8,7 +8,8 @@ import {
   type bucketBill,
 } from "@/lib/billing";
 import { money } from "@/lib/billing-cost";
-import { formatBytes, formatCount, bucketHref } from "@/lib/format";
+import { BillingTable } from "./table";
+import { BillingSkeleton } from "./skeleton";
 import { InfoTip } from "@/app/info-tip";
 import {
   KumoTable as Table,
@@ -43,15 +44,7 @@ export function BillingContent({ scope }: { scope: BillingScope }) {
           Month to date · UTC
         </p>
       </header>
-      <Suspense
-        fallback={
-          <div
-            className="min-h-82.5 rounded-lg border border-kumo-line bg-kumo-base"
-            aria-label="Loading billing usage"
-            aria-busy="true"
-          />
-        }
-      >
+      <Suspense fallback={<BillingSkeleton />}>
         <Usage scope={scope} />
       </Suspense>
       <section className="space-y-3">
@@ -153,78 +146,8 @@ async function Usage({ scope }: { scope: BillingScope }) {
           available measurements.
         </output>
       )}
-      <div className="overflow-x-auto rounded-lg border border-kumo-line">
-        <Table>
-          <Header>
-            <Row>
-              <TableHead>Bucket</TableHead>
-              <TableHead>Storage</TableHead>
-              <TableHead>Class A</TableHead>
-              <TableHead>Class B</TableHead>
-              <TableHead>Retrieval</TableHead>
-              <TableHead>Estimated cost</TableHead>
-            </Row>
-          </Header>
-          <Body>
-            {rows.map(({ name, bill }) => (
-              <Row key={name}>
-                <Cell>
-                  <Link className="text-kumo-link" href={bucketHref(name)}>
-                    {name}
-                  </Link>
-                </Cell>
-                <Cost
-                  cost={bill?.storageAvailable ? bill.cost.storage : undefined}
-                  empty={<span className="text-kumo-subtle">Pending data</span>}
-                >
-                  {bill &&
-                    `${(bill.usage.Standard.gbMonths + bill.usage.InfrequentAccess.gbMonths).toLocaleString("en-US", { maximumFractionDigits: 3 })} GB-month`}
-                </Cost>
-                <Cost cost={bill?.cost.a}>
-                  {bill &&
-                    `${formatCount(bill.usage.Standard.a + bill.usage.InfrequentAccess.a)} requests`}
-                </Cost>
-                <Cost cost={bill?.cost.b}>
-                  {bill &&
-                    `${formatCount(bill.usage.Standard.b + bill.usage.InfrequentAccess.b)} requests`}
-                </Cost>
-                <Cost cost={bill?.cost.retrieval}>
-                  {bill && formatBytes(bill.usage.InfrequentAccess.retrieved)}
-                </Cost>
-                <Cell className="font-medium tabular-nums">
-                  {bill ? money(bill.total) : "Unavailable"}
-                  {bill && !bill.storageComplete && (
-                    <p className="mt-1 text-xs font-normal text-kumo-subtle">Partial estimate</p>
-                  )}
-                </Cell>
-              </Row>
-            ))}
-          </Body>
-        </Table>
-      </div>
+      <BillingTable rows={rows} />
     </section>
   );
 }
 type Bill = NonNullable<Awaited<ReturnType<typeof bucketBill>>>;
-function Cost({
-  cost,
-  empty = "—",
-  children,
-}: {
-  cost?: number;
-  empty?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <Cell>
-      {cost == null ? (
-        empty
-      ) : (
-        <>
-          <p>{money(cost)}</p>
-          <p className="mt-1 text-xs text-kumo-subtle">{children}</p>
-        </>
-      )}
-    </Cell>
-  );
-}

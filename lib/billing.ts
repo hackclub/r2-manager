@@ -25,6 +25,15 @@ export async function bucketBill(name: string) {
     }}}`,
     { bucket: name, start: start.toISOString(), end: end.toISOString() },
   );
+  return calculateBill(name, data, start, end);
+}
+
+function calculateBill(
+  name: string,
+  data: { storage: Storage[]; operations: Operation[] } | null,
+  start: Date,
+  end: Date,
+) {
   if (
     !data?.storage ||
     !data.operations ||
@@ -65,7 +74,69 @@ export async function ownedBills(owner: string) {
 }
 
 export async function accountBills() {
-  return billsForBuckets((await cloudflareBuckets()).map((b) => b.name).sort());
+  const names = (await cloudflareBuckets()).map((b) => b.name).sort();
+  if (!names.length) return [];
+  const { start, end } = billingPeriod();
+  // Group by bucket in one query instead of waiting for a request per bucket.
+  // https://developers.cloudflare.com/r2/platform/metrics-analytics/
+  const data: {
+    storage: (Storage & { dimensions: Storage["dimensions"] & { bucketName: string } })[];
+    operations: (Operation & { dimensions: Operation["dimensions"] & { bucketName: string } })[];
+  } | null = await graphql(
+    `
+      query AccountBilling($account: string!, $start: Time!, $end: Time!) {
+        viewer {
+          accounts(filter: { accountTag: $account }) {
+            storage: r2StorageAdaptiveGroups(
+              limit: 10000
+              filter: { datetime_geq: $start, datetime_lt: $end }
+            ) {
+              max {
+                payloadSize
+              }
+              dimensions {
+                bucketName
+                date
+                storageClass
+              }
+            }
+            operations: r2OperationsAdaptiveGroups(
+              limit: 10000
+              filter: { datetime_geq: $start, datetime_lt: $end }
+            ) {
+              sum {
+                requests
+                responseBytes
+              }
+              dimensions {
+                bucketName
+                actionType
+                storageClass
+              }
+            }
+          }
+        }
+      }
+    `,
+    { start: start.toISOString(), end: end.toISOString() },
+  );
+  // A capped result could omit whole buckets. Fall back rather than show low totals.
+  if (data && (data.storage?.length >= 10000 || data.operations?.length >= 10000))
+    return billsForBuckets(names);
+  return names.map((name) => ({
+    name,
+    bill: calculateBill(
+      name,
+      data?.storage && data.operations
+        ? {
+            storage: data.storage.filter((r) => r.dimensions.bucketName === name),
+            operations: data.operations.filter((r) => r.dimensions.bucketName === name),
+          }
+        : null,
+      start,
+      end,
+    ),
+  }));
 }
 
 export async function billsForBuckets(names: string[]) {
