@@ -25,7 +25,8 @@ const learnMore = (
 
 async function Contents({ params, searchParams }: Props) {
   const [{ name }, s] = await Promise.all([params, searchParams]);
-  if (!(await bucketAccess(name))) notFound();
+  const access = await bucketAccess(name);
+  if (!access) notFound();
   const prefix = typeof s.prefix === "string" ? s.prefix.slice(0, 1024) : "";
   const asFolders = s.folders !== "false";
   const [page, meta, pub, m, custom] = await Promise.all([
@@ -96,6 +97,7 @@ async function Contents({ params, searchParams }: Props) {
         objects={page.objects}
         cursor={page.cursor}
         asFolders={asFolders}
+        canWrite={access.role !== "viewer"}
       />
     </main>
   );

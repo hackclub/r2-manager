@@ -22,7 +22,8 @@ type Props = { params: Promise<{ name: string }>; searchParams: Promise<{ key?: 
 
 async function Details({ params, searchParams }: Props) {
   const [{ name }, { key }] = await Promise.all([params, searchParams]);
-  if (typeof key !== "string" || !validObjectKey(key) || !(await bucketAccess(name))) notFound();
+  const access = await bucketAccess(name);
+  if (typeof key !== "string" || !validObjectKey(key) || !access) notFound();
   const meta = await objectDetails(name, key).catch((e) => {
     if (e?.$metadata?.httpStatusCode === 404) notFound();
     throw e;
@@ -56,7 +57,9 @@ async function Details({ params, searchParams }: Props) {
           >
             Download
           </LinkButton>
-          <DeleteObjectButton bucket={name} objectKey={key} returnTo={back} />
+          {access.role !== "viewer" && (
+            <DeleteObjectButton bucket={name} objectKey={key} returnTo={back} />
+          )}
         </div>
       </div>
       <section className="overflow-hidden rounded-lg border border-kumo-line">

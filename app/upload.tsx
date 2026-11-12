@@ -31,10 +31,12 @@ export function UploadProvider({
   bucket,
   prefix,
   children,
+  enabled = true,
 }: {
   bucket: string;
   prefix: string;
   children: ReactNode;
+  enabled?: boolean;
 }) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
@@ -138,6 +140,7 @@ export function UploadProvider({
   }, [router]);
   const enqueue = useCallback(
     (files: File[], folderSkipped = false) => {
+      if (!enabled) return;
       if (!running.current) {
         batch.current = { total: 0, completed: 0, failed: 0 };
         setErrors([]);
@@ -155,9 +158,10 @@ export function UploadProvider({
         void drain();
       }
     },
-    [bucket, prefix, drain],
+    [bucket, prefix, drain, enabled],
   );
   useEffect(() => {
+    if (!enabled) return;
     const reset = () => {
       dragDepth.current = 0;
       setDragging(false);
@@ -207,7 +211,7 @@ export function UploadProvider({
     return () => {
       for (const [k, h] of Object.entries(handlers)) window.removeEventListener(k, h);
     };
-  }, [enqueue]);
+  }, [enqueue, enabled]);
   function cancel() {
     stop();
     batch.current = { total: 0, completed: 0, failed: 0 };
@@ -229,6 +233,7 @@ export function UploadProvider({
     <UploadContext.Provider value={{ choose: () => input.current?.click(), busy: !!activity }}>
       <input
         ref={input}
+        disabled={!enabled}
         type="file"
         multiple
         className="sr-only"

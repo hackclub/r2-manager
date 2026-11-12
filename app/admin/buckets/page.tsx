@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getAccess } from "@/lib/access";
 import { db } from "@/lib/db";
 import { cloudflareBuckets } from "@/lib/cloudflare";
+import type { BucketRole } from "@/lib/bucket-policy";
 import { Buckets } from "./buckets";
 
 async function Content() {
@@ -15,8 +16,8 @@ async function Content() {
     db.query<{ name: string }>("SELECT name FROM managed_buckets ORDER BY name"),
     cloudflareBuckets(),
     db.query<{ name: string }>("SELECT name FROM retired_bucket_names"),
-    db.query<{ bucket_name: string; id: string; name: string; email: string }>(
-      'SELECT m.bucket_name,u.id,u.name,u.email FROM bucket_members m JOIN "user" u ON u.id=m.user_id ORDER BY u.name',
+    db.query<{ bucket_name: string; id: string; name: string; email: string; role: BucketRole }>(
+      'SELECT m.bucket_name,m.role,u.id,u.name,u.email FROM bucket_members m JOIN "user" u ON u.id=m.user_id ORDER BY u.name',
     ),
   ]);
   const known = new Set(managed.rows.map((b) => b.name));

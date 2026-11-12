@@ -47,7 +47,10 @@ export async function createBucket(
         "INSERT INTO managed_buckets (name, owner_id, status) VALUES ($1, $2, 'pending')",
         [name, owner],
       );
-      await c.query("INSERT INTO bucket_members(bucket_name,user_id) VALUES($1,$2)", [name, owner]);
+      await c.query(
+        "INSERT INTO bucket_members(bucket_name,user_id,role) VALUES($1,$2,'manager')",
+        [name, owner],
+      );
     });
     if (error) return error;
   } catch (e) {

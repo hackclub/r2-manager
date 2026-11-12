@@ -3,7 +3,13 @@ import { revalidatePath } from "next/cache";
 import { getAccess } from "@/lib/access";
 import { db, reserveName, tx } from "@/lib/db";
 import { cloudflareBuckets } from "@/lib/cloudflare";
-import { revokeKeysAndBlockSubject, removeBucketMember } from "@/lib/api-keys";
+import {
+  revokeKeysAndBlockSubject,
+  removeBucketMember,
+  changeBucketMemberRole,
+} from "@/lib/api-keys";
+
+import { isBucketRole } from "@/lib/bucket-policy";
 
 const denied = "Administrator access required.";
 const protectedAdmin = "Administrator access cannot be revoked here.";
@@ -48,6 +54,8 @@ export async function assignBucket(_: string | null, form: FormData) {
   if (!(await getAccess())?.admin) return denied;
   const [bucket, owner] = [form.get("bucket"), form.get("owner")];
   if (typeof bucket !== "string" || typeof owner !== "string") return "Choose a bucket and person.";
+  const role = form.get("role");
+  if (!isBucketRole(role)) return "Choose Viewer, Editor, or Manager.";
   const found = (await cloudflareBuckets()).find((b) => b.name === bucket);
   if (!found) return "This bucket is no longer in Cloudflare.";
   try {
@@ -68,8 +76,8 @@ export async function assignBucket(_: string | null, form: FormData) {
       )
         return "This bucket has a pending reservation.";
       const added = await c.query(
-        "INSERT INTO bucket_members(bucket_name,user_id) VALUES($1,$2) ON CONFLICT DO NOTHING RETURNING user_id",
-        [bucket, owner],
+        "INSERT INTO bucket_members(bucket_name,user_id,role) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING user_id",
+        [bucket, owner, role],
       );
       revalidatePath("/", "layout");
       return added.rowCount ? "Access granted." : "This person already has access.";
@@ -87,6 +95,25 @@ export async function removeBucketAccess(bucket: string, user: string) {
     return null;
   } catch {
     return "Could not revoke this person's API keys. Bucket access was not removed. Check Cloudflare and retry.";
+  } finally {
+    revalidatePath("/", "layout");
+  }
+}
+
+export async function changeBucketRole(_: string | null, form: FormData) {
+  if (!(await getAccess())?.admin) return denied;
+  const bucket = form.get("bucket"),
+    user = form.get("user"),
+    role = form.get("role");
+  if (typeof bucket !== "string" || typeof user !== "string" || !isBucketRole(role))
+    return "Choose a valid bucket, person, and role.";
+  try {
+    await changeBucketMemberRole(bucket, user, role);
+    return "Role updated.";
+  } catch (e) {
+    return e instanceof Error
+      ? `Role was not changed: ${e.message}`
+      : "Role was not changed. Try again.";
   } finally {
     revalidatePath("/", "layout");
   }

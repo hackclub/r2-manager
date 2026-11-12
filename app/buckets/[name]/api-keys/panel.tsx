@@ -48,6 +48,7 @@ function status(k: KeySummary, now: number) {
 export function ApiKeysPanel({
   bucket,
   buckets,
+  writableBuckets,
   keys,
   configured,
   endpoint,
@@ -55,6 +56,7 @@ export function ApiKeysPanel({
 }: {
   bucket: string;
   buckets: string[];
+  writableBuckets: string[];
   keys: KeySummary[];
   configured: boolean;
   endpoint: string;
@@ -233,6 +235,7 @@ export function ApiKeysPanel({
           requestId={flow}
           bucket={bucket}
           buckets={buckets}
+          writableBuckets={writableBuckets}
           onClose={close(setFlow)}
         />
       )}
@@ -326,11 +329,13 @@ function CreateKeyFlow({
   requestId,
   bucket,
   buckets,
+  writableBuckets,
   onClose,
 }: {
   requestId: string;
   bucket: string;
   buckets: string[];
+  writableBuckets: string[];
   onClose: () => void;
 }) {
   const [result, action, pending] = useActionState(createApiKey, null);
@@ -350,7 +355,9 @@ function CreateKeyFlow({
   const valid = Number.isFinite(t) && t > opened + 60000 && t <= opened + 365 * DAY;
   const local = (n: number) =>
     new Date(n - new Date(n).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  const matches = buckets.filter((b) => b.includes(search.toLowerCase()));
+  const allowedBuckets =
+    permission === "read" ? buckets : buckets.filter((b) => writableBuckets.includes(b));
+  const matches = allowedBuckets.filter((b) => b.includes(search.toLowerCase()));
   return (
     <Dialog.Root
       open
@@ -404,7 +411,11 @@ function CreateKeyFlow({
             <Radio.Group
               legend="Permissions"
               value={permission}
-              onValueChange={(value) => setPermission(value as string)}
+              onValueChange={(value) => {
+                setPermission(value as string);
+                if (value === "read-write")
+                  setSelected(new Set([...selected].filter((b) => writableBuckets.includes(b))));
+              }}
             >
               <Radio.Item
                 value="read"
@@ -414,7 +425,8 @@ function CreateKeyFlow({
               <Radio.Item
                 value="read-write"
                 label="Read / write"
-                description="List, download, upload, replace, and delete objects."
+                description="Requires Editor or Manager access to each selected bucket."
+                disabled={!writableBuckets.length}
               />
             </Radio.Group>
             <p className="-mt-3 text-xs text-kumo-subtle">
@@ -427,7 +439,7 @@ function CreateKeyFlow({
                 Bucket access <span className="text-kumo-subtle">· {selected.size} selected</span>
               </legend>
               <p className="mt-1 text-xs text-kumo-subtle">
-                Only buckets assigned to you are available. New buckets are never added
+                Only buckets your role permits are available. New buckets are never added
                 automatically.
               </p>
               <div className="mt-3 rounded-lg border border-kumo-line">
@@ -444,10 +456,14 @@ function CreateKeyFlow({
                     variant="ghost"
                     size="sm"
                     onClick={() =>
-                      setSelected(selected.size === buckets.length ? new Set() : new Set(buckets))
+                      setSelected(
+                        selected.size === allowedBuckets.length
+                          ? new Set()
+                          : new Set(allowedBuckets),
+                      )
                     }
                   >
-                    {selected.size === buckets.length ? "Clear all" : "Select all"}
+                    {selected.size === allowedBuckets.length ? "Clear all" : "Select all"}
                   </Button>
                 </div>
                 <div className="max-h-52 space-y-1 overflow-y-auto p-3">

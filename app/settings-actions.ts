@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { bucketAccess, withBucket } from "@/lib/objects";
 import { bucketSetting, cf } from "@/lib/cloudflare";
 import { isUniqueViolation } from "@/lib/db";
+import { parseRules } from "@/lib/rule-policy";
 import { storageClasses } from "@/lib/format";
 
 const put = (body: unknown) => ({ method: "PUT", body: JSON.stringify(body) });
@@ -10,7 +11,7 @@ const settings = (bucket: string) => revalidatePath(`/buckets/${bucket}/settings
 
 export async function saveSetting(_: string | null, form: FormData): Promise<string | null> {
   const [bucket, setting, value] = ["bucket", "setting", "value"].map((k) => form.get(k));
-  if (!(await bucketAccess(bucket))) return "Bucket not found.";
+  if (!(await bucketAccess(bucket, "manager"))) return "Bucket not found.";
   if (typeof setting !== "string" || typeof value !== "string" || value.length > 50000)
     return "Invalid setting.";
   const b = bucket as string,
@@ -29,9 +30,12 @@ export async function saveSetting(_: string | null, form: FormData): Promise<str
         return "Confirm that you understand these rules can affect existing objects.";
       let rules: unknown;
       try {
-        rules = JSON.parse(value);
-      } catch {
-        return "Enter valid JSON.";
+        rules =
+          setting === "cors" || setting === "lifecycle"
+            ? parseRules(setting, value)
+            : JSON.parse(value);
+      } catch (e) {
+        return e instanceof Error ? e.message : "Enter valid JSON.";
       }
       if (!Array.isArray(rules) || rules.length > 100)
         return "Rules must be a JSON array of at most 100 items.";
@@ -46,7 +50,7 @@ export async function saveSetting(_: string | null, form: FormData): Promise<str
 
 export async function addCustomDomain(_: string | null, form: FormData): Promise<string | null> {
   const [bucket, subdomain] = [form.get("bucket"), form.get("subdomain")];
-  if (!(await bucketAccess(bucket))) return "Bucket not found.";
+  if (!(await bucketAccess(bucket, "manager"))) return "Bucket not found.";
   if (typeof subdomain !== "string" || !/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(subdomain))
     return "Use a lowercase subdomain containing letters, numbers, and hyphens.";
   if (form.get("confirm") !== "yes") return "Confirm that the domain will make the bucket public.";
@@ -103,7 +107,7 @@ export async function changeCustomDomain(bucket: string, hostname: string, opera
   if (
     typeof hostname !== "string" ||
     !["enable", "disable", "remove"].includes(operation) ||
-    !(await bucketAccess(bucket))
+    !(await bucketAccess(bucket, "manager"))
   )
     return "Domain not found.";
   const remove = operation === "remove";

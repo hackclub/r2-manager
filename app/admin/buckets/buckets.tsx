@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AssignmentForm, RemoveMemberButton } from "../forms";
+import { AssignmentForm, RemoveMemberButton, MemberRoleForm } from "../forms";
 import { EmptyState, ListControls, Status } from "../list-controls";
+
+import type { BucketRole } from "@/lib/bucket-policy";
 
 type Bucket = {
   name: string;
   status: "assigned" | "unassigned" | "retired";
-  members: { id: string; name: string; email: string }[];
+  members: { id: string; name: string; email: string; role: BucketRole }[];
 };
 
 export function Buckets({
@@ -41,10 +43,11 @@ export function Buckets({
         </p>
       </div>
       <div className="rounded-xl border border-kumo-line bg-kumo-elevated p-5 text-sm">
-        <p className="font-medium">Bucket access grants full control</p>
+        <p className="font-medium">Choose the access each person needs</p>
         <p className="mt-1 text-kumo-subtle">
-          People with access can manage objects, settings, and API keys. They must sign in at least
-          once. Administrators always have access. Manage app access on the{" "}
+          Viewers can read objects. Editors can also upload and delete objects. Managers can change
+          settings, empty, and delete buckets. People must sign in at least once. Administrators
+          always have full access. Manage app access on the{" "}
           <Link href="/admin/users" className="text-kumo-default underline">
             Users page
           </Link>
@@ -87,6 +90,7 @@ export function Buckets({
                         <span>
                           {m.name} <span className="break-all text-kumo-subtle">· {m.email}</span>
                         </span>
+                        <MemberRoleForm key={m.role} bucket={b.name} user={m} />
                         <RemoveMemberButton bucket={b.name} user={m} />
                       </li>
                     ))}

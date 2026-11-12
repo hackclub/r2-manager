@@ -4,7 +4,15 @@ import { Input } from "@cloudflare/kumo/components/input";
 import { Button } from "@cloudflare/kumo/components/button";
 import { Select } from "@cloudflare/kumo/components/select";
 import { ConfirmDialog, attempt } from "../confirm-dialog";
-import { allowUser, assignBucket, promoteUser, removeBucketAccess } from "./actions";
+import {
+  allowUser,
+  assignBucket,
+  promoteUser,
+  removeBucketAccess,
+  changeBucketRole,
+} from "./actions";
+
+import { bucketRoles, type BucketRole } from "@/lib/bucket-policy";
 
 export function PromoteButton({ subject, name }: { subject: string; name: string }) {
   const [open, setOpen] = useState(false);
@@ -79,11 +87,19 @@ export function AssignmentForm({
   users: { id: string; name: string; email: string }[];
 }) {
   const [owner, setOwner] = useState<string | null>(null);
+  const [role, setRole] = useState<BucketRole>("viewer");
   const [message, action, pending] = useActionState(assignBucket, null);
   return (
     <form action={action} className="flex min-w-0 flex-wrap items-center gap-2">
       <input type="hidden" name="bucket" value={bucket} />
       <input type="hidden" name="owner" value={owner ?? ""} />
+      <input type="hidden" name="role" value={role} />
+      <Select
+        aria-label={`New person's role for ${bucket}`}
+        value={role}
+        onValueChange={(v) => setRole((v as BucketRole) || "viewer")}
+        items={bucketRoles}
+      />
       <Select
         aria-label={`Add person to ${bucket}`}
         placeholder="Select a registered user"
@@ -147,5 +163,42 @@ export function RemoveMemberButton({
         }
       />
     </>
+  );
+}
+
+export function MemberRoleForm({
+  bucket,
+  user,
+}: {
+  bucket: string;
+  user: { id: string; name: string; role: BucketRole };
+}) {
+  const [role, setRole] = useState<BucketRole>(user.role);
+  const [message, action, pending] = useActionState(changeBucketRole, null);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-2">
+      <input type="hidden" name="bucket" value={bucket} />
+      <input type="hidden" name="user" value={user.id} />
+      <input type="hidden" name="role" value={role} />
+      <Select
+        aria-label={`Role for ${user.name} on ${bucket}`}
+        value={role}
+        onValueChange={(v) => setRole((v as BucketRole) || user.role)}
+        items={bucketRoles}
+      />
+      {role !== user.role && (
+        <>
+          <Button type="submit" size="sm" variant="secondary" loading={pending}>
+            Save role
+          </Button>
+          {role === "viewer" && (
+            <span className="text-xs text-kumo-subtle">
+              Read/write keys including this bucket will be revoked.
+            </span>
+          )}
+        </>
+      )}
+      {message && <output className="text-xs text-kumo-subtle">{message}</output>}
+    </form>
   );
 }

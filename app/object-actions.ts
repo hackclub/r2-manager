@@ -7,7 +7,7 @@ import { bucketSetting, cf, cloudflareConfigured, r2 } from "@/lib/cloudflare";
 import { jobState } from "@/lib/format";
 
 export async function createUploadUrl(bucket: string, key: string, size: number) {
-  if (!(await bucketAccess(bucket)) || typeof key !== "string")
+  if (!(await bucketAccess(bucket, "editor")) || typeof key !== "string")
     return { error: "Bucket not found." };
   if (!validObjectKey(key)) return { error: "Invalid object name." };
   if (!Number.isSafeInteger(size) || size < 0 || size > 300 * 1024 * 1024)
@@ -66,13 +66,17 @@ async function objectOp(bucket: string, op: () => Promise<unknown>, failed: stri
 }
 
 export async function deleteObject(bucket: string, key: string) {
-  if (!(await bucketAccess(bucket)) || typeof key !== "string" || !validObjectKey(key))
+  if (!(await bucketAccess(bucket, "editor")) || typeof key !== "string" || !validObjectKey(key))
     return "Object not found.";
   return objectOp(bucket, () => removeObject(bucket, key), "Could not delete the object.");
 }
 
 export async function createFolder(bucket: string, prefix: string, name: string) {
-  if (!(await bucketAccess(bucket)) || typeof prefix !== "string" || typeof name !== "string")
+  if (
+    !(await bucketAccess(bucket, "editor")) ||
+    typeof prefix !== "string" ||
+    typeof name !== "string"
+  )
     return "Bucket not found.";
   if (!name || name.includes("/") || (prefix && !prefix.endsWith("/")))
     return "Enter a folder name without slashes.";
@@ -92,7 +96,8 @@ export async function emptyBucket(
   form: FormData,
 ): Promise<EmptyBucketResult> {
   const bucket = form.get("bucket");
-  if (!(await bucketAccess(bucket))) return { state: "error", message: "Bucket not found." };
+  if (!(await bucketAccess(bucket, "manager")))
+    return { state: "error", message: "Bucket not found." };
   if (form.get("confirmation") !== `EMPTY ${bucket}`)
     return { state: "error", message: "Type the confirmation exactly as shown." };
   const b = bucket as string;

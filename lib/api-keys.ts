@@ -2,6 +2,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import type { PoolClient } from "pg";
 import { db, withLock } from "./db";
+import { type BucketRole } from "./bucket-policy";
 import { accessAllowed } from "./access-policy";
 import { tokenPolicy, type KeyRequest } from "./api-key-policy";
 import { account, cf, cloudflareConfigured, r2Endpoint } from "./cloudflare";
@@ -154,12 +155,12 @@ export const issueKey = (
     try {
       await c.query("BEGIN");
       const owned = await c.query(
-        "SELECT name FROM managed_buckets WHERE EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$1) AND status='active' AND name=ANY($2::text[]) FOR UPDATE",
-        [owner, request.buckets],
+        "SELECT name FROM managed_buckets WHERE EXISTS (SELECT 1 FROM bucket_members m WHERE m.bucket_name=managed_buckets.name AND m.user_id=$1 AND ($3='read' OR m.role IN ('editor','manager'))) AND status='active' AND name=ANY($2::text[]) FOR UPDATE",
+        [owner, request.buckets, request.permission],
       );
       if (owned.rows.length !== request.buckets.length)
         throw new Error(
-          "Keys can only include active buckets assigned to you. Refresh the page and check your selection.",
+          "Your bucket role does not allow this key. Read/write keys require Editor or Manager access to every selected bucket.",
         );
       const inserted = await c.query(
         "INSERT INTO managed_api_keys(id,owner_id,name,permission,buckets,expires_at) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(id) DO UPDATE SET name=EXCLUDED.name,permission=EXCLUDED.permission,buckets=EXCLUDED.buckets,expires_at=EXCLUDED.expires_at,created_at=now(),status='pending',cloudflare_id=NULL,revoked_at=NULL WHERE managed_api_keys.owner_id=EXCLUDED.owner_id AND managed_api_keys.status='failed' RETURNING id",
@@ -325,6 +326,16 @@ export const rollOwnedKey = (
       throw new Error(
         "This key includes a bucket no longer assigned to you. Revoke it and create a new key.",
       );
+    if (key.permission === "read-write") {
+      const writable = await c.query(
+        "SELECT bucket_name FROM bucket_members WHERE user_id=$1 AND bucket_name=ANY($2::text[]) AND role IN ('editor','manager')",
+        [owner, key.buckets],
+      );
+      if (writable.rowCount !== key.buckets.length)
+        throw new Error(
+          "Your bucket role no longer permits this read/write key. Revoke it and create a read-only key.",
+        );
+    }
     const expected = tokenPolicy(account!, key.buckets, key.permission);
     const matches = (t: Token) =>
       t.id === key.cloudflare_id &&
@@ -358,4 +369,30 @@ export const removeBucketMember = (bucket: string, user: string) =>
     );
     for (const key of keys.rows) await revokeRow(c, key);
     await c.query("DELETE FROM bucket_members WHERE bucket_name=$1 AND user_id=$2", [bucket, user]);
+  });
+
+/** Shares the issuance lock, including the remote request, before downgrading credentials. */
+export const changeBucketMemberRole = (bucket: string, user: string, role: BucketRole) =>
+  withOwnerLock(user, async (c) => {
+    if (
+      !(
+        await c.query("SELECT 1 FROM bucket_members WHERE bucket_name=$1 AND user_id=$2", [
+          bucket,
+          user,
+        ])
+      ).rowCount
+    )
+      throw new Error("This person no longer has access to the bucket.");
+    if (role === "viewer") {
+      const keys = await c.query<KeyRow>(
+        "SELECT * FROM managed_api_keys WHERE owner_id=$1 AND $2=ANY(buckets) AND permission='read-write' AND status IN ('pending','active','revoke_pending') AND expires_at>now()",
+        [user, bucket],
+      );
+      for (const key of keys.rows) await revokeRow(c, key);
+    }
+    await c.query("UPDATE bucket_members SET role=$3 WHERE bucket_name=$1 AND user_id=$2", [
+      bucket,
+      user,
+      role,
+    ]);
   });

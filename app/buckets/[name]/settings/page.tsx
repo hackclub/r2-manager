@@ -51,7 +51,18 @@ function Field({
 
 async function Settings({ params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
-  if (!(await bucketAccess(name))) notFound();
+  const access = await bucketAccess(name);
+  if (!access) notFound();
+  if (access.role !== "manager")
+    return (
+      <main className="max-w-5xl px-6 py-8 lg:px-8">
+        <h1 className="text-xl font-semibold">Settings</h1>
+        <p className="mt-4 text-sm text-kumo-subtle">
+          Manager access is required to change bucket settings. Your role is{" "}
+          {access.role === "viewer" ? "Viewer" : "Editor"}.
+        </p>
+      </main>
+    );
   const rules = (s: string) => bucketSetting<{ rules?: unknown[] }>(name, `/${s}`);
   const [bucket, managed, cors, lifecycle, lock, jobs, custom] = await Promise.allSettled([
     bucketSetting<{ storage_class?: string; creation_date?: string; location?: string }>(name, ""),

@@ -77,6 +77,7 @@ export function ObjectBrowser({
   objects,
   cursor,
   asFolders,
+  canWrite,
 }: {
   bucket: string;
   prefix: string;
@@ -84,6 +85,7 @@ export function ObjectBrowser({
   objects: Entry[];
   cursor?: string;
   asFolders: boolean;
+  canWrite: boolean;
 }) {
   const router = useRouter();
   const [folderView, setFolderView] = useOptimistic(asFolders);
@@ -143,7 +145,12 @@ export function ObjectBrowser({
   const directory = prefix.endsWith("/") ? prefix : prefix.slice(0, prefix.lastIndexOf("/") + 1);
   const crumbs = directory.split("/").filter(Boolean);
   return (
-    <UploadProvider key={bucket} bucket={bucket} prefix={directory}>
+    <UploadProvider
+      key={`${bucket}:${canWrite}`}
+      bucket={bucket}
+      prefix={directory}
+      enabled={canWrite}
+    >
       <section aria-label="Objects" className="mt-6">
         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-kumo-line pb-5">
           <form
@@ -210,8 +217,17 @@ export function ObjectBrowser({
             </span>
           </nav>
           <div className="flex items-start gap-2">
-            <Upload />
-            <FolderForm bucket={bucket} prefix={directory} />
+            {!canWrite && (
+              <span className="self-center text-xs text-kumo-subtle">
+                Viewer access · read only
+              </span>
+            )}
+            {canWrite && (
+              <>
+                <Upload />
+                <FolderForm bucket={bucket} prefix={directory} />
+              </>
+            )}
             <Button
               aria-label="Refresh objects"
               variant="secondary"
@@ -364,13 +380,15 @@ export function ObjectBrowser({
                             >
                               Download
                             </DropdownMenu.LinkItem>
-                            <DropdownMenu.Item
-                              variant="danger"
-                              onClick={() => del.open(row.key)}
-                              disabled={busy}
-                            >
-                              Delete object
-                            </DropdownMenu.Item>
+                            {canWrite && (
+                              <DropdownMenu.Item
+                                variant="danger"
+                                onClick={() => del.open(row.key)}
+                                disabled={busy}
+                              >
+                                Delete object
+                              </DropdownMenu.Item>
+                            )}
                           </>
                         )}
                       </DropdownMenu.Content>
@@ -382,7 +400,11 @@ export function ObjectBrowser({
           </Table>
           {!rows.length && (
             <div className="p-6">
-              <Upload dropzone />
+              {canWrite ? (
+                <Upload dropzone />
+              ) : (
+                <p className="text-sm text-kumo-subtle">No objects found.</p>
+              )}
             </div>
           )}
         </div>

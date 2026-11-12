@@ -1,24 +1,15 @@
 "use client";
 import { storageClasses } from "@/lib/format";
-import dynamic from "next/dynamic";
 import { CheckIcon } from "@phosphor-icons/react";
 import { useActionState, useState } from "react";
 import { Button } from "@cloudflare/kumo/components/button";
 import { Select } from "@cloudflare/kumo/components/select";
 import { Checkbox } from "@cloudflare/kumo/components/checkbox";
 import { InputArea } from "@cloudflare/kumo/components/input";
+import { RuleEditor } from "./rule-editor";
+import { parseRules } from "@/lib/rule-policy";
 import { saveSetting } from "./settings-actions";
 
-const CorsEditor = dynamic(() => import("./cors-editor"), {
-  ssr: false,
-  loading: () => (
-    <div
-      className="h-[466px] rounded-lg border border-kumo-line bg-kumo-base"
-      aria-label="Loading CORS editor"
-      aria-busy="true"
-    />
-  ),
-});
 type Props = {
   bucket: string;
   setting: "storage" | "public" | "cors" | "lifecycle" | "lock";
@@ -32,7 +23,14 @@ function Form({ bucket, setting, value }: Props) {
   const [message, action, pending] = useActionState(saveSetting, null);
   const [selected, setSelected] = useState(value);
   const [confirmed, setConfirmed] = useState(false);
-  const [valid, setValid] = useState(false);
+  let valid = true;
+  if (setting === "cors" || setting === "lifecycle") {
+    try {
+      parseRules(setting, selected);
+    } catch {
+      valid = false;
+    }
+  }
   const saved = message === "Saved.";
   const confirm = (label: string) => (
     <Checkbox checked={confirmed} onCheckedChange={setConfirmed} label={label} />
@@ -55,15 +53,14 @@ function Form({ bucket, setting, value }: Props) {
           {setting === "public" &&
             confirm("I understand enabling this makes objects publicly accessible.")}
         </>
-      ) : setting === "cors" ? (
+      ) : setting === "cors" || setting === "lifecycle" ? (
         <>
           {hidden}
-          <CorsEditor
-            bucket={bucket}
-            value={selected}
-            onChange={setSelected}
-            onValidityChange={setValid}
-          />
+          <RuleEditor bucket={bucket} kind={setting} value={selected} onChange={setSelected} />
+          {setting === "lifecycle" &&
+            confirm(
+              "I understand these rules can affect existing objects and permanently delete matching data.",
+            )}
         </>
       ) : (
         <>
@@ -83,7 +80,7 @@ function Form({ bucket, setting, value }: Props) {
           type="submit"
           variant="secondary"
           loading={pending}
-          disabled={setting === "cors" && !valid}
+          disabled={!valid || (setting === "lifecycle" && !confirmed)}
         >
           Save
         </Button>
