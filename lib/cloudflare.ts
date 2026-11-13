@@ -32,7 +32,14 @@ export async function bucketSetting<T>(
   suffix: string,
   init?: RequestInit,
 ): Promise<T> {
-  const { ok, data } = await cf(r2(bucket, suffix), init);
+  const { res, ok, data } = await cf(r2(bucket, suffix), init);
+  if (
+    suffix === "/cors" &&
+    (!init?.method || init.method === "GET") &&
+    res.status === 404 &&
+    data?.errors?.some((error: { code?: number }) => error.code === 10059)
+  )
+    return { rules: [] } as T;
   if (!ok) throw new Error(data?.errors?.[0]?.message || "Cloudflare request failed");
   return data.result;
 }
