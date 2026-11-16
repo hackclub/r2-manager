@@ -15,10 +15,11 @@ export async function KeyContent({ owner, bucket = "" }: { owner: string; bucket
   return (
     <main className="px-6 py-8 lg:px-8">
       <ApiKeysPanel
+        key={bucket || "account"}
         bucket={bucket}
-        buckets={buckets}
+        buckets={bucket ? buckets.filter((name) => name === bucket) : buckets}
         writableBuckets={writable.rows.map((r) => r.bucket_name)}
-        keys={keys}
+        keys={bucket ? keys.filter((key) => key.buckets.includes(bucket)) : keys}
         configured={cloudflareConfigured()}
         endpoint={account ? r2Endpoint : ""}
         now={Date.now()}

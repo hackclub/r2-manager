@@ -93,7 +93,9 @@ export function ApiKeysPanel({
         <div>
           <h1 className="text-xl font-semibold">API Keys</h1>
           <p className="mt-2 max-w-2xl text-sm text-kumo-subtle">
-            Key me up! These keys give your apps access to your Cloudflare R2 buckets.
+            {bucket
+              ? `Your API keys with access to ${bucket}, including keys shared with other buckets.`
+              : "Key me up! These keys give your apps access to your Cloudflare R2 buckets."}
           </p>
         </div>
         {create("primary")}
@@ -105,11 +107,8 @@ export function ApiKeysPanel({
       )}
       {bucket && !buckets.includes(bucket) && (
         <p className="mt-6 rounded-lg border border-kumo-line p-4 text-sm text-kumo-subtle">
-          This bucket is not assigned to you. You can create keys only for buckets you own
-          {buckets.length
-            ? ", which you can select in the create-key dialog"
-            : ". Ask an administrator to assign a bucket to you"}
-          .
+          API key creation is unavailable for this bucket. Use the account API Keys page to manage
+          keys for your other buckets.
         </p>
       )}
       {!bucket && !buckets.length && (
@@ -205,9 +204,11 @@ export function ApiKeysPanel({
         {!keys.length && (
           <div className="flex min-h-56 flex-col items-center justify-center gap-3 p-8 text-center">
             <KeyIcon size={36} className="text-kumo-subtle" />
-            <h2 className="font-medium">No keys yet!</h2>
+            <h2 className="font-medium">{bucket ? "No keys for this bucket" : "No keys yet!"}</h2>
             <p className="max-w-md text-sm text-kumo-subtle">
-              Create an API key to connect your apps.
+              {bucket
+                ? `You have no API keys for ${bucket}.`
+                : "Create an API key to connect your apps."}
             </p>
             {create("secondary")}
           </div>
@@ -285,7 +286,7 @@ function RollKeyFlow({ item, onClose }: { item: KeySummary; onClose: () => void 
         <Dialog.Description className="mt-3 text-sm text-kumo-subtle">
           {credentials
             ? "Save the new key now! You will not be able to see it after!"
-            : "Rolling permanently invalidates the current secret. Update every app using this key with the new secret. The access key ID, buckets, permissions, and expiry stay the same."}
+            : `Rolling permanently invalidates the current secret for ${item.buckets.join(", ")}. Update every app using this key with the new secret. The access key ID, buckets, permissions, and expiry stay the same.`}
         </Dialog.Description>
         {credentials ? (
           <Issued credentials={credentials} saved={saved} setSaved={setSaved} onClose={onClose} />
